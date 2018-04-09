@@ -1,0 +1,48 @@
+version: 2
+workflows:
+  version: 2
+  linux-builds:
+    - alpine-x86_64
+    - linux-armv7l
+    - linux-aarch64
+
+jobs:
+  alpine-x86_64:
+    docker:
+      - image: alpine:3.7
+    steps: &steps
+      - run:
+          name: Setup
+          command: |
+            if [ -z "$(ls /etc/*release | grep -i alpine)" ]; then
+              apt-get update
+              apt-get install build-essential
+            else
+              apk update
+              apk add build-base git openssh linux-headers
+            fi
+      - checkout
+      - run:
+          name: Check out PR merge commit
+          command: | # For consistency with Travis
+            if [ -n "${CIRCLE_PULL_REQUEST}" ]; then
+              git remote set-url origin git@github.com:ararslan/openlibm.git
+              git fetch origin +refs/pull/$(basename ${CIRCLE_PULL_REQUEST})/merge
+              git checkout -qf FETCH_HEAD
+            fi
+      - run:
+          name: Build the library
+          command: make
+      - run:
+          name: Run tests
+          command: make check
+
+  linux-armv7l:
+    docker:
+      - image: arm32v7/ubuntu:16.04
+    steps: *steps
+
+  linux-aarch64:
+    docker:
+      - image: arm64v8/ubuntu:16.04
+    steps: *steps
